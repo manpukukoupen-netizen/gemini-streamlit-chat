@@ -6,7 +6,7 @@ from google.genai import types
 st.set_page_config(page_title="Gemini Chat", page_icon="🤖")
 st.title("🤖 Gemini AI Chat App")
 
-# アイコン画像の設定（GitHubにアップロードした icon.png を使用。ない場合は絵文字）
+# アイコン画像の設定（GitHubに icon.png があれば使用、なければ絵文字）
 ASSISTANT_AVATAR = "icon.png" if os.path.exists("icon.png") else "🤖"
 
 # APIキーの取得
@@ -20,11 +20,12 @@ if not api_key:
 client = genai.Client(api_key=api_key)
 
 # ---------------------------------------------------------
-# サイドバーでAIの性格を選択・作成する機能
+# サイドバー設定
 # ---------------------------------------------------------
-st.sidebar.title("⚙️ AIの性格・設定")
+st.sidebar.title("⚙️ チャット設定")
 
-# 設定モードの選択
+# 1. AIの性格・設定
+st.sidebar.subheader("🤖 AIの性格")
 mode = st.sidebar.radio(
     "設定方法",
     ["プリセットから選ぶ", "自分で自由につくる（カスタム）"]
@@ -38,16 +39,34 @@ if mode == "プリセットから選ぶ":
         "猫耳メイド": "あなたは語尾に『ニャ』をつけるお給仕メイドAIです。丁寧かつ可愛らしく答えてください。"
     }
     selected_persona = st.sidebar.selectbox("プリセット", list(persona_options.keys()))
-    system_instruction = persona_options[selected_persona]
-
+    ai_setting = persona_options[selected_persona]
 else:
-    # ユーザーが自由にテキスト入力できるエリア
     user_custom_setting = st.sidebar.text_area(
-        "AIの設定・性格を入力してください",
+        "AIの性格・特徴",
         value="自分のことが好きな女子高生。少し照れくさそうにしつつ、常にユーザーを肯定して仲良く会話してください。",
-        height=150
+        height=100
     )
-    system_instruction = f"あなたは以下の設定になりきって会話してください。\n【設定】\n{user_custom_setting}"
+    ai_setting = user_custom_setting
+
+# 2. ユーザー自身の情報（設定）
+st.sidebar.subheader("👤 あなたの情報（プロフィール）")
+user_profile = st.sidebar.text_area(
+    "AIに知っておいてほしいあなたに関する設定",
+    value="名前：たくみ\n職業：学生\n好きなもの：ゲーム、音楽\n呼び方：たくみ君と呼んでほしい",
+    height=120,
+    help="AIがあなたと話す時に参照するプロフィール情報です。"
+)
+
+# 3. AI設定とユーザー設定を結合してシステム指示を作成
+system_instruction = f"""
+あなたは以下のルールと指示に厳格に従って会話してください。
+
+【AIの性格・役割】
+{ai_setting}
+
+【会話相手（ユーザー）の情報】
+{user_profile}
+"""
 
 # ---------------------------------------------------------
 # 会話リセットの確認ダイアログ機能
@@ -75,7 +94,6 @@ if "messages" not in st.session_state:
 
 # 過去の会話履歴を画面に表示
 for message in st.session_state.messages:
-    # アシスタントメッセージの場合は指定のイラストアイコンを表示
     avatar = ASSISTANT_AVATAR if message["role"] == "assistant" else None
     with st.chat_message(message["role"], avatar=avatar):
         st.markdown(message["content"])
@@ -96,7 +114,7 @@ if prompt := st.chat_input("メッセージを入力してください..."):
                     for m in st.session_state.messages
                 ]
                 
-                # 設定された性格（system_instruction）を反映して応答生成
+                # 設定された性格＋ユーザープロフィールの両方を反映して応答生成
                 response = client.models.generate_content(
                     model="gemini-3.6-flash",
                     contents=chat_history,
