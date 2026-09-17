@@ -17,7 +17,7 @@ if not api_key:
 client = genai.Client(api_key=api_key)
 
 # ---------------------------------------------------------
-# サイドバーでユーザーがAIの性格を自由に設定できる機能
+# サイドバーでAIの性格を選択・作成する機能
 # ---------------------------------------------------------
 st.sidebar.title("⚙️ AIの性格・設定")
 
@@ -41,20 +41,28 @@ else:
     # ユーザーが自由にテキスト入力できるエリア
     user_custom_setting = st.sidebar.text_area(
         "AIの設定・性格を入力してください",
-        value="ユーザーのことが大好きな女子高生。少し照れくさそうにしつつ、常にユーザーを肯定して仲良く会話してください。",
-        height=150,
-        help="例：「語尾を〜ロボにする」「ツンデレな先生」「自分のことが好きな女子高生」など"
+        value="自分のことが好きな女子高生。少し照れくさそうにしつつ、常にユーザーを肯定して仲良く会話してください。",
+        height=150
     )
-    
-    # 入力された内容をそのままシステム指示にする
     system_instruction = f"あなたは以下の設定になりきって会話してください。\n【設定】\n{user_custom_setting}"
 
 # ---------------------------------------------------------
-# 会話履歴の消去ボタン（性格を変えた時などに便利）
+# 会話リセットの確認ダイアログ機能
 # ---------------------------------------------------------
+@st.dialog("会話のリセット確認")
+def confirm_reset():
+    st.write("本当にこれまでの会話履歴を削除してリセットしますか？")
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("はい", use_container_width=True):
+            st.session_state.messages = []
+            st.rerun()
+    with col2:
+        if st.button("いいえ", use_container_width=True):
+            st.rerun()
+
 if st.sidebar.button("💬 会話をリセット"):
-    st.session_state.messages = []
-    st.rerun()
+    confirm_reset()
 
 # ---------------------------------------------------------
 # セッション状態（会話履歴）の初期化
@@ -83,7 +91,7 @@ if prompt := st.chat_input("メッセージを入力してください..."):
                     for m in st.session_state.messages
                 ]
                 
-                # ユーザーが作った設定（system_instruction）を反映
+                # 設定された性格（system_instruction）を反映して応答生成
                 response = client.models.generate_content(
                     model="gemini-3.6-flash",
                     contents=chat_history,
