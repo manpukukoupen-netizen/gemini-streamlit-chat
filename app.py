@@ -6,6 +6,9 @@ from google.genai import types
 st.set_page_config(page_title="Gemini Chat", page_icon="🤖")
 st.title("🤖 Gemini AI Chat App")
 
+# アイコン画像の設定（GitHubにアップロードした icon.png を使用。ない場合は絵文字）
+ASSISTANT_AVATAR = "icon.png" if os.path.exists("icon.png") else "🤖"
+
 # APIキーの取得
 api_key = st.secrets.get("GEMINI_API_KEY") or os.environ.get("GEMINI_API_KEY")
 
@@ -72,7 +75,9 @@ if "messages" not in st.session_state:
 
 # 過去の会話履歴を画面に表示
 for message in st.session_state.messages:
-    with st.chat_message(message["role"]):
+    # アシスタントメッセージの場合は指定のイラストアイコンを表示
+    avatar = ASSISTANT_AVATAR if message["role"] == "assistant" else None
+    with st.chat_message(message["role"], avatar=avatar):
         st.markdown(message["content"])
 
 # ユーザーからの入力処理
@@ -82,7 +87,7 @@ if prompt := st.chat_input("メッセージを入力してください..."):
     st.session_state.messages.append({"role": "user", "content": prompt})
 
     # Geminiからの応答を取得
-    with st.chat_message("assistant"):
+    with st.chat_message("assistant", avatar=ASSISTANT_AVATAR):
         with st.spinner("考え中..."):
             try:
                 # 会話履歴の作成
