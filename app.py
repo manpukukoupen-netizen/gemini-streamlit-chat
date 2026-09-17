@@ -40,7 +40,7 @@ if prompt := st.chat_input("メッセージを入力してください..."):
                     for m in st.session_state.messages
                 ]
                 response = client.models.generate_content(
-                    model="gemini-2.5-flash",
+                    model="gemini-3.6-flash",
                     contents=chat_history
                 )
                 response_text = response.text
