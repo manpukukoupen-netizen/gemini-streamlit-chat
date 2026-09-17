@@ -1,4 +1,5 @@
 import os
+import time
 import streamlit as st
 from google import genai
 from google.genai import types
@@ -57,7 +58,7 @@ user_profile = st.sidebar.text_area(
     help="AIがあなたと話す時に参照するプロフィール情報です。"
 )
 
-# 3. AI設定とユーザー設定を結合してシステム指示を作成
+# 3. システム指示の結合
 system_instruction = f"""
 あなたは以下のルールと指示に厳格に従って会話してください。
 
@@ -107,25 +108,34 @@ if prompt := st.chat_input("メッセージを入力してください..."):
     # Geminiからの応答を取得
     with st.chat_message("assistant", avatar=ASSISTANT_AVATAR):
         with st.spinner("考え中..."):
-            try:
-                # 会話履歴の作成
-                chat_history = [
-                    {"role": m["role"], "parts": [{"text": m["content"]}]}
-                    for m in st.session_state.messages
-                ]
-                
-                # 設定された性格＋ユーザープロフィールの両方を反映して応答生成
-                response = client.models.generate_content(
-                    model="gemini-3.6-flash",
-                    contents=chat_history,
-                    config=types.GenerateContentConfig(
-                        system_instruction=system_instruction
+            chat_history = [
+                {"role": m["role"], "parts": [{"text": m["content"]}]}
+                for m in st.session_state.messages
+            ]
+            
+            # 503エラー（一時的高負荷）に強い自動リトライ処理（最大3回）
+            max_retries = 3
+            response_text = None
+            
+            for attempt in range(max_retries):
+                try:
+                    response = client.models.generate_content(
+                        model="gemini-3.6-flash",
+                        contents=chat_history,
+                        config=types.GenerateContentConfig(
+                            system_instruction=system_instruction
+                        )
                     )
-                )
-                response_text = response.text
+                    response_text = response.text
+                    break  # 成功したらループを抜ける
+                except Exception as e:
+                    if "503" in str(e) and attempt < max_retries - 1:
+                        time.sleep(2)  # 2秒待ってから再試行
+                        continue
+                    else:
+                        st.error(f"エラーが発生しました: {e}")
+                        break
+
+            if response_text:
                 st.markdown(response_text)
-                
-                # アシスタントの応答を保存
                 st.session_state.messages.append({"role": "assistant", "content": response_text})
-            except Exception as e:
-                st.error(f"エラーが発生しました: {e}")
